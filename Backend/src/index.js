@@ -10,6 +10,8 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 
+import statisticsRoutes from "./routes/statisticsRoutes.js";
+
 dotenv.config();
 
 const app = express();
@@ -67,3 +69,8 @@ app.listen(PORT, () => {
         `Server running on port ${PORT}`
     );
 });
+
+app.use(
+    "/api/statistics",
+    statisticsRoutes
+);

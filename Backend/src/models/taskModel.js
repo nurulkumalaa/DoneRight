@@ -127,20 +127,36 @@ export const toggleTaskStatus =
         taskId,
         userId
     ) => {
+
         const query = `
-      UPDATE tasks
-      SET is_completed =
-        NOT is_completed
-      WHERE
-        id_tasks = $1
-        AND user_id = $2
-      RETURNING *
-    `;
+            UPDATE tasks
+            SET
+                is_completed =
+                    NOT is_completed,
+
+                completed_at =
+                    CASE
+                        WHEN
+                            is_completed = FALSE
+                        THEN NOW()
+
+                        ELSE NULL
+                    END
+
+            WHERE
+                id_tasks = $1
+                AND user_id = $2
+
+            RETURNING *
+        `;
 
         const result =
             await pool.query(
                 query,
-                [taskId, userId]
+                [
+                    taskId,
+                    userId,
+                ]
             );
 
         return result.rows[0];
