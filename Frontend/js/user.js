@@ -93,6 +93,64 @@ async function deleteAccount() {
 }
 
 // =========================
+// PRODUCTIVITY
+// =========================
+async function getMyProductivity() {
+
+    try {
+        const response = await fetch(`${BASE_URL}/statistics/me`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        const stats = await response.json();
+
+        document.getElementById("myProductivityBox").style.display = "none";
+
+        const table = document.getElementById("myStatsTable");
+
+        table.innerHTML = `
+            <tr>
+                <td>${stats.total_tasks}</td>
+                <td>${stats.on_time}</td>
+                <td>${stats.overdue}</td>
+                <td>${stats.pending}</td>
+                <td>${stats.productivity}%</td>
+            </tr>
+        `;
+    } catch (error) {
+        console.error(error);
+        document.getElementById("myProductivityBox").innerText = "Failed to load productivity";
+    }
+}
+
+async function downloadMyPDF() {
+
+    const response = await fetch(`${BASE_URL}/statistics/pdf/me`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    const blob = await response.blob();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+
+    a.download = "my-productivity-report.pdf";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+}
+
+// =========================
 // CATEGORY
 // =========================
 async function addCategory() {
@@ -163,99 +221,433 @@ async function getTasks() {
 }
 
 function renderTasks() {
-    const search = document.getElementById("searchTask").value.toLowerCase();
-    const category = document.getElementById("filterCategory").value;
-    const priority = document.getElementById("filterPriority").value;
-    const status = document.getElementById("filterStatus").value;
-    const sortBy = document.getElementById("sortTask").value;
 
-    let filtered = allTasks.filter(task => {
-        const titleMatch = task.title.toLowerCase().includes(search);
-        const descMatch = task.description ? task.description.toLowerCase().includes(search) : false;
-        const matchSearch = titleMatch || descMatch;
-        
-        const matchCategory = category === "" || String(task.category_id) === category;
-        const matchPriority = priority === "" || task.priority === priority;
-        const matchStatus = status === "" || (status === "done" ? task.is_completed : !task.is_completed);
+    const search =
+        document
+            .getElementById(
+                "searchTask"
+            )
+            ?.value
+            .toLowerCase() || "";
 
-        return matchSearch && matchCategory && matchPriority && matchStatus;
-    });
+    const category =
+        document
+            .getElementById(
+                "filterCategory"
+            )
+            ?.value || "";
 
-    filtered.sort((a, b) => {
-        if (sortBy === "newest") {
-            return new Date(b.created_at) - new Date(a.created_at);
-        } else if (sortBy === "oldest") {
-            return new Date(a.created_at) - new Date(b.created_at);
-        } else if (sortBy === "deadline_asc") {
-            if (!a.deadline) return 1;
-            if (!b.deadline) return -1;
-            return new Date(a.deadline) - new Date(b.deadline);
-        } else if (sortBy === "deadline_desc") {
-            if (!a.deadline) return 1;
-            if (!b.deadline) return -1;
-            return new Date(b.deadline) - new Date(a.deadline);
-        } else if (sortBy === "priority_desc") {
-            const p = { high: 3, medium: 2, low: 1 };
-            return p[b.priority] - p[a.priority];
-        } else if (sortBy === "priority_asc") {
-            const p = { high: 3, medium: 2, low: 1 };
-            return p[a.priority] - p[b.priority];
-        }
-        return 0;
-    });
+    const priority =
+        document
+            .getElementById(
+                "filterPriority"
+            )
+            ?.value || "";
 
-    const taskList = document.getElementById("taskList");
-    taskList.innerHTML = "";
+    const status =
+        document
+            .getElementById(
+                "filterStatus"
+            )
+            ?.value || "";
 
-    filtered.forEach((task) => {
-        let overdueText = "";
-        if (task.deadline && !task.is_completed) {
-            const deadlineDate = new Date(task.deadline);
-            if (deadlineDate < new Date()) {
-                overdueText = " <strong style='color:red;'>(OVERDUE)</strong>";
+    const sortBy =
+        document
+            .getElementById(
+                "sortTask"
+            )
+            ?.value || "newest";
+
+    let filtered =
+        allTasks.filter(
+            (task) => {
+
+                const titleMatch =
+                    task.title
+                        .toLowerCase()
+                        .includes(
+                            search
+                        );
+
+                const descMatch =
+                    task.description
+                        ? task.description
+                            .toLowerCase()
+                            .includes(
+                                search
+                            )
+                        : false;
+
+                const matchSearch =
+                    titleMatch ||
+                    descMatch;
+
+                const matchCategory =
+                    category === "" ||
+                    (
+                        category ===
+                            "null"
+                            ? !task.category_id
+                            : String(
+                                task.category_id
+                            ) === category
+                    );
+
+                const matchPriority =
+                    priority === "" ||
+                    task.priority ===
+                    priority;
+
+                // =====================
+                // STATUS LOGIC
+                // =====================
+                const now =
+                    new Date();
+
+                const deadline =
+                    task.deadline
+                        ? new Date(
+                            task.deadline
+                        )
+                        : null;
+
+                let taskStatus =
+                    "pending";
+
+                // DONE
+                if (
+                    task.is_completed
+                ) {
+
+                    // DONE TELAT
+                    if (
+                        deadline &&
+                        task.completed_at &&
+                        new Date(
+                            task.completed_at
+                        ) > deadline
+                    ) {
+
+                        taskStatus =
+                            "overdue";
+
+                    } else {
+
+                        taskStatus =
+                            "done";
+                    }
+
+                }
+
+                // BELUM DONE
+                else {
+
+                    // DEADLINE LEWAT
+                    if (
+                        deadline &&
+                        deadline < now
+                    ) {
+
+                        taskStatus =
+                            "overdue";
+
+                    }
+                }
+
+                const matchStatus =
+                    status === "" ||
+                    taskStatus ===
+                    status;
+
+                return (
+                    matchSearch &&
+                    matchCategory &&
+                    matchPriority &&
+                    matchStatus
+                );
             }
+        );
+
+    // =====================
+    // SORT
+    // =====================
+    filtered.sort(
+        (a, b) => {
+
+            if (
+                sortBy ===
+                "newest"
+            ) {
+
+                return (
+                    new Date(
+                        b.created_at
+                    ) -
+                    new Date(
+                        a.created_at
+                    )
+                );
+            }
+
+            if (
+                sortBy ===
+                "oldest"
+            ) {
+
+                return (
+                    new Date(
+                        a.created_at
+                    ) -
+                    new Date(
+                        b.created_at
+                    )
+                );
+            }
+
+            if (
+                sortBy ===
+                "deadline_asc"
+            ) {
+
+                if (
+                    !a.deadline
+                ) return 1;
+
+                if (
+                    !b.deadline
+                ) return -1;
+
+                return (
+                    new Date(
+                        a.deadline
+                    ) -
+                    new Date(
+                        b.deadline
+                    )
+                );
+            }
+
+            if (
+                sortBy ===
+                "deadline_desc"
+            ) {
+
+                if (
+                    !a.deadline
+                ) return 1;
+
+                if (
+                    !b.deadline
+                ) return -1;
+
+                return (
+                    new Date(
+                        b.deadline
+                    ) -
+                    new Date(
+                        a.deadline
+                    )
+                );
+            }
+
+            const p = {
+                high: 3,
+                medium: 2,
+                low: 1,
+            };
+
+            if (
+                sortBy ===
+                "priority_desc"
+            ) {
+
+                return (
+                    p[
+                    b.priority
+                    ] -
+                    p[
+                    a.priority
+                    ]
+                );
+            }
+
+            if (
+                sortBy ===
+                "priority_asc"
+            ) {
+
+                return (
+                    p[
+                    a.priority
+                    ] -
+                    p[
+                    b.priority
+                    ]
+                );
+            }
+
+            return 0;
         }
+    );
 
-        taskList.innerHTML += `
-            <div>
+    const taskList =
+        document.getElementById(
+            "taskList"
+        );
 
-                <h3>${task.title}</h3>
+    taskList.innerHTML =
+        "";
 
-                <p>Description: ${task.description || "-"}</p>
-                <p>Category: ${task.category_name || "No Category"}</p>
-                <p>Priority: ${task.priority}</p>
-                <p>Deadline: ${task.deadline
-                ? new Date(task.deadline).toLocaleString() + overdueText
-                : "-"
-            }</p>
+    filtered.forEach(
+        (task) => {
 
-                <p>Status: ${task.is_completed ? "Done" : "Not Yet"
-            }</p>
+            const now =
+                new Date();
 
-                <button onclick="toggleTask(${task.id_tasks})">
-                    Toggle Done
-                </button>
+            const deadline =
+                task.deadline
+                    ? new Date(
+                        task.deadline
+                    )
+                    : null;
 
-                <button onclick="startEdit(
-                    ${task.id_tasks},
-                    \`${task.title}\`,
-                    \`${task.description || ""}\`,
-                    ${task.category_id || "null"},
-                    \`${task.priority}\`,
-                    \`${task.deadline || ""}\`
-                )">
-                    Edit
-                </button>
+            let statusText =
+                "Pending";
 
-                <button onclick="deleteTask(${task.id_tasks})">
-                    Delete
-                </button>
+            let overdueText =
+                "";
 
-                <hr>
+            // DONE
+            if (
+                task.is_completed
+            ) {
 
-            </div>
-        `;
-    });
+                if (
+                    deadline &&
+                    task.completed_at &&
+                    new Date(
+                        task.completed_at
+                    ) > deadline
+                ) {
+
+                    statusText =
+                        "Overdue";
+
+                    overdueText =
+                        ` <strong style="color:red;">
+                            (LATE)
+                        </strong>`;
+
+                } else {
+
+                    statusText =
+                        "Done";
+                }
+
+            }
+
+            // BELUM DONE
+            else {
+
+                if (
+                    deadline &&
+                    deadline < now
+                ) {
+
+                    statusText =
+                        "Overdue";
+
+                    overdueText =
+                        ` <strong style="color:red;">
+                            (OVERDUE)
+                        </strong>`;
+
+                }
+            }
+
+            taskList.innerHTML += `
+                <div>
+
+                    <h3>
+                        ${task.title}
+                    </h3>
+
+                    <p>
+                        Description:
+                        ${task.description ||
+                "-"
+                }
+                    </p>
+
+                    <p>
+                        Category:
+                        ${task.category_name ||
+                "No Category"
+                }
+                    </p>
+
+                    <p>
+                        Priority:
+                        ${task.priority}
+                    </p>
+
+                    <p>
+                        Deadline:
+                        ${task.deadline
+                    ? new Date(
+                        task.deadline
+                    ).toLocaleString()
+                    + overdueText
+                    : "-"
+                }
+                    </p>
+
+                    <p>
+                        Status:
+                        ${statusText}
+                    </p>
+
+                    <button
+                        onclick="
+                            toggleTask(
+                                ${task.id_tasks}
+                            )
+                        "
+                    >
+                        Toggle Done
+                    </button>
+
+                    <button
+                        onclick="
+                            startEdit(
+                                ${task.id_tasks},
+                                \`${task.title}\`,
+                                \`${task.description || ""}\`,
+                                ${task.category_id || "null"},
+                                \`${task.priority}\`,
+                                \`${task.deadline || ""}\`
+                            )
+                        "
+                    >
+                        Edit
+                    </button>
+
+                    <button
+                        onclick="
+                            deleteTask(
+                                ${task.id_tasks}
+                            )
+                        "
+                    >
+                        Delete
+                    </button>
+
+                    <hr>
+
+                </div>
+            `;
+        }
+    );
 }
 
 // ADD / UPDATE TASK
@@ -445,6 +837,7 @@ function logout() {
 
 // INIT
 getProfile();
+getMyProductivity();
 getCategories();
 getTasks();
 getTrash();
