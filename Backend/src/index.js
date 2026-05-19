@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import pool from "./config/db.js";
 
@@ -14,11 +16,18 @@ import statisticsRoutes from "./routes/statisticsRoutes.js";
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
 app.use(cors());
 
 app.use(express.json());
+
+// Serve Frontend static files
+app.use(express.static(path.join(__dirname, "../../Frontend-React/dist")));
+app.use(express.static(path.join(__dirname, "../../Frontend")));
 
 // TEST DB CONNECTION
 pool.query("SELECT NOW()")
